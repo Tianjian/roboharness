@@ -66,6 +66,38 @@ class TaskProtocol:
     description: str = ""
     phases: list[TaskPhase] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        """Reject protocols that would silently corrupt capture bookkeeping.
+
+        Checkpoints are keyed by phase name, so two phases sharing a name
+        register two checkpoints but only one snapshot slot. A rollback would
+        then restore the wrong state and the evidence pack would mix phases.
+        Failing fast here is cheaper than debugging a mislabelled capture.
+
+        Raises:
+            ValueError: If the protocol name is empty, a phase name is empty,
+                or two phases share a name.
+        """
+        if not self.name or not self.name.strip():
+            raise ValueError("TaskProtocol.name must be a non-empty string")
+
+        seen: set[str] = set()
+        duplicates: list[str] = []
+        for phase in self.phases:
+            if not phase.name or not phase.name.strip():
+                raise ValueError(f"TaskProtocol '{self.name}' contains a phase with an empty name")
+            if phase.name in seen:
+                duplicates.append(phase.name)
+            seen.add(phase.name)
+
+        if duplicates:
+            unique = sorted(set(duplicates))
+            raise ValueError(
+                f"TaskProtocol '{self.name}' has duplicate phase name(s): "
+                f"{', '.join(unique)}. Phase names key checkpoint and snapshot "
+                "slots, so they must be unique."
+            )
+
     def phase_names(self) -> list[str]:
         """Return ordered list of phase names."""
         return [p.name for p in self.phases]

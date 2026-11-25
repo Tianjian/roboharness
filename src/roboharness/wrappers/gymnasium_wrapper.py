@@ -95,15 +95,18 @@ def _detect_camera_capability(env: gym.Env) -> str:  # type: ignore[type-arg]
     return MultiCameraCapability.NONE
 
 
-def _capture_frame_from_env(
+def _capture_frame_with_reason(
     env: gym.Env,  # type: ignore[type-arg]
     camera_name: str,
     capability: str,
-) -> np.ndarray | None:
-    """Capture a single frame from the environment for the given camera.
+) -> tuple[np.ndarray | None, str | None]:
+    """Capture a frame and report *why* it failed instead of swallowing it.
 
-    Returns an RGB numpy array (H, W, 3) or None if capture failed.
+    Returns ``(frame, None)`` on success and ``(None, reason)`` on failure.
+    Callers that must not fail open (checkpoint capture) use the reason; the
+    back-compat wrapper :func:`_capture_frame_from_env` discards it.
     """
+
     try:
         if capability == MultiCameraCapability.RENDER_CAMERA:
             # Try env first, then unwrapped
@@ -111,7 +114,7 @@ def _capture_frame_from_env(
                 render_fn = getattr(target, "render_camera", None)
                 if target is not None and callable(render_fn):
                     frame = render_fn(camera_name)
-                    return _to_numpy_rgb(frame)
+                    return _to_numpy_rgb(frame), None
 
         if capability == MultiCameraCapability.ISAAC_TILED:
             unwrapped = getattr(env, "unwrapped", env)
@@ -123,15 +126,32 @@ def _capture_frame_from_env(
                 if data is not None:
                     output = getattr(data, "output", None)
                     if isinstance(output, dict) and "rgb" in output:
-                        return _to_numpy_rgb(output["rgb"])
+                        return _to_numpy_rgb(output["rgb"]), None
 
         # Fallback: use env.render() for the default camera
         frame = env.render()
-        return _to_numpy_rgb(frame)
+        converted = _to_numpy_rgb(frame)
+        if converted is None:
+            return None, f"env.render() returned no frame for camera {camera_name!r}"
+        return converted, None
 
-    except Exception:
+    except Exception as exc:
         logger.debug("Failed to capture frame for camera '%s'", camera_name, exc_info=True)
-        return None
+        return None, f"{type(exc).__name__}: {exc}"
+
+
+def _capture_frame_from_env(
+    env: gym.Env,  # type: ignore[type-arg]
+    camera_name: str,
+    capability: str,
+) -> np.ndarray | None:
+    """Capture a single frame from the environment for the given camera.
+
+    Returns an RGB numpy array (H, W, 3) or None if capture failed. Callers that
+    need the failure reason should use :func:`_capture_frame_with_reason`.
+    """
+    frame, _reason = _capture_frame_with_reason(env, camera_name, capability)
+    return frame
 
 
 def _to_numpy_rgb(frame: Any) -> np.ndarray | None:
@@ -187,6 +207,7 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
         protocol: TaskProtocol | None = None,
         phase_steps: dict[str, int] | None = None,
         auto_fix_obs_space: bool = False,
+        strict_capture: bool = False,
     ):
         super().__init__(env)
         self.output_dir = Path(output_dir)
@@ -196,6 +217,10 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
         self._active_protocol: TaskProtocol | None = None
         self._auto_fix_obs_space = auto_fix_obs_space
         self._obs_space_fixed = False
+        #: When True, a checkpoint that produces zero images raises instead of
+        #: writing state-only evidence. Default False keeps legacy behaviour but
+        #: still records and warns about the failure.
+        self.strict_capture = strict_capture
 
         # Detect multi-camera capability
         self.camera_capability = _detect_camera_capability(env)
@@ -321,24 +346,49 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
 
         saved_files: dict[str, str] = {}
         captured_cameras: list[str] = []
+        capture_errors: list[str] = []
 
         if self.camera_capability == MultiCameraCapability.NONE:
             # Single-view fallback: one call to env.render()
-            frame = _capture_frame_from_env(self.env, "default", MultiCameraCapability.NONE)
+            frame, reason = _capture_frame_with_reason(
+                self.env, "default", MultiCameraCapability.NONE
+            )
             if frame is not None:
                 path = capture_dir / "default_rgb.png"
                 _save_image(frame, path)
                 saved_files["default_rgb"] = str(path)
                 captured_cameras.append("default")
+            elif reason is not None:
+                capture_errors.append(f"default: {reason}")
         else:
             # Multi-camera: capture from each configured camera
             for camera_name in self.cameras:
-                frame = _capture_frame_from_env(self.env, camera_name, self.camera_capability)
+                frame, reason = _capture_frame_with_reason(
+                    self.env, camera_name, self.camera_capability
+                )
                 if frame is not None:
                     path = capture_dir / f"{camera_name}_rgb.png"
                     _save_image(frame, path)
                     saved_files[f"{camera_name}_rgb"] = str(path)
                     captured_cameras.append(camera_name)
+                elif reason is not None:
+                    capture_errors.append(f"{camera_name}: {reason}")
+
+        # A checkpoint with no images is not usable evidence. Never report it as
+        # a silent success: record the failure, warn loudly, and optionally raise.
+        capture_failed = not captured_cameras
+        if capture_failed:
+            detail = "; ".join(capture_errors) or "no camera produced a frame"
+            message = (
+                f"Checkpoint '{name}' captured 0 images ({detail}). "
+                "State-only evidence cannot be reviewed visually. "
+                "Install a renderer (e.g. `pip install pygame` for Gymnasium "
+                "classic-control) or construct the wrapper with strict_capture=True "
+                "to fail fast."
+            )
+            logger.warning(message)
+            if self.strict_capture:
+                raise RuntimeError(message)
 
         # Save state info
         state = {
@@ -373,8 +423,11 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
             "task": self.task_name,
             "cameras": captured_cameras,
             "camera_capability": self.camera_capability,
+            "capture_failed": capture_failed,
             "files": saved_files,
         }
+        if capture_errors:
+            meta["capture_errors"] = capture_errors
         with metadata_path.open("w") as f:
             json.dump(meta, f, indent=2)
 
