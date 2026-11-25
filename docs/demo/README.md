@@ -4,6 +4,10 @@
 the `fix/trust-layer-hardening` branch **with the real MuJoCo simulation running**,
 and ends with the quality gates.
 
+The commit stamp inside the video (`06e8234`) is the last **code** commit at
+capture time. The commit that adds these files only adds the demo, so the code it
+demonstrates is unchanged; re-running `capture.py` stamps the current HEAD.
+
 **Nothing in the video is invented.**
 
 - The simulation panels are frames rendered from MuJoCo with the same scripted
