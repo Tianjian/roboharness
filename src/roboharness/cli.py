@@ -456,6 +456,16 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     gate_parser.add_argument(
+        "--evidence-root",
+        type=Path,
+        default=None,
+        help=(
+            "Directory that provenance artifact paths are relative to. Defaults "
+            "to the artefact's own directory; set it when the decision file was "
+            "copied away from the evidence it describes."
+        ),
+    )
+    gate_parser.add_argument(
         "--format",
         dest="output_format",
         choices=["human", "json"],
@@ -705,6 +715,7 @@ def main(argv: list[str] | None = None) -> int:
             decision = gate_decision(
                 args.artefact,
                 require_provenance_binding=args.require_provenance,
+                evidence_root=args.evidence_root,
             )
         except (FileNotFoundError, ValueError) as exc:
             print(f"Error: {exc}", file=sys.stderr)

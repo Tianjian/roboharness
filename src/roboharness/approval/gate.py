@@ -319,8 +319,17 @@ def gate(
     path: str | Path,
     *,
     require_provenance_binding: bool = False,
+    evidence_root: str | Path | None = None,
 ) -> GateDecision:
-    """Locate, load, and decide the gate outcome for ``path``."""
+    """Locate, load, and decide the gate outcome for ``path``.
+
+    Args:
+        path: Approval artefact, case directory, or run directory.
+        require_provenance_binding: Verify the provenance block and fail closed.
+        evidence_root: Directory artifact hashes resolve against. Defaults to
+            the artefact's directory, which is wrong when the decision file was
+            copied away from the evidence it describes.
+    """
 
     artefact = resolve_approval_artefact(path)
     document = _load_json(artefact)
@@ -330,6 +339,7 @@ def gate(
         document,
         source=str(artefact),
         require_provenance_binding=require_provenance_binding,
+        evidence_root=evidence_root,
     )
 
 

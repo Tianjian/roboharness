@@ -19,7 +19,11 @@ from roboharness.approval.gate import (
     normalize_verdict,
     resolve_approval_artefact,
 )
-from roboharness.approval.provenance import PROVENANCE_SCHEMA_VERSION, hash_file
+from roboharness.approval.provenance import (
+    PROVENANCE_SCHEMA_VERSION,
+    collect_provenance,
+    hash_file,
+)
 
 
 def _approval_report(
@@ -218,3 +222,23 @@ class TestGateEndToEnd:
         report.write_text(json.dumps([1, 2, 3]))
         with pytest.raises(GateInputError, match="not a JSON object"):
             gate(report)
+
+    def test_evidence_root_overrides_the_artefact_directory(self, tmp_path: Path) -> None:
+        """A decision file copied away from its evidence still verifies."""
+
+        evidence = tmp_path / "case"
+        evidence.mkdir()
+        image = evidence / "lift" / "front_rgb.png"
+        image.parent.mkdir()
+        image.write_bytes(b"pixels")
+        document = _approval_report()
+        document["provenance"] = collect_provenance(evidence, [image])
+
+        elsewhere = tmp_path / "reports"
+        elsewhere.mkdir()
+        report = elsewhere / "approval_report.json"
+        report.write_text(json.dumps(document))
+
+        assert gate(report, require_provenance_binding=True).verdict == CONTRACT_INVALID
+        decision = gate(report, require_provenance_binding=True, evidence_root=evidence)
+        assert decision.verdict == PASS
