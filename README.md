@@ -13,11 +13,15 @@ The core wedge is:
 
 `long unattended agent run -> one proof pack -> short human review`
 
-The proving ground starts with the deterministic MuJoCo grasp loop, but the
-same proof surface also works for humanoid runs across multiple frameworks.
+The proving ground is the deterministic MuJoCo grasp loop. Humanoid runs are
+exercised end-to-end on MuJoCo and LeRobot; the Isaac Lab and ManiSkill wrapper
+paths are adapter code validated against mocks rather than real installs (see
+[Supported Simulators](#supported-simulators)).
 From a repo checkout, one command gets back a compiled contract,
 metric-backed alarms, a phase manifest, an approval report, and an HTML proof
-surface that tells you what changed and what to do next.
+surface that tells you what changed and what to do next. The verdict is
+enforceable: `roboharness gate` maps `PASS`/`FAIL`/`AMBIGUOUS`/`CONTRACT_INVALID`
+to exit codes `0`/`1`/`2`/`3`, so CI can refuse a merge instead of filing a report.
 
 ![Unitree G1 humanoid demo rendered side by side in Meshcat and MuJoCo](assets/g1/X36_Y28_Z13/g1_meshcat_mujoco_comparison.gif)
 
@@ -27,6 +31,18 @@ keeps its phase name visible so you can compare humanoid behavior across
 frameworks without opening the full report first. To regenerate the same proof
 surface locally from the committed bundle, run
 `python examples/demos/g1/cross_framework_report.py`.
+
+## What it is / is not
+
+It **is** a visual + metric regression and approval harness for robot simulation:
+semantic-phase checkpoints, contract-gated hard metrics, paired current-vs-baseline
+evidence, and a proof pack a reviewer can approve or reject.
+
+It is **not** a policy orchestrator, a policy trainer, or a correctness oracle. Every
+hard gate compares against a blessed baseline, so `PASS` means "no material change
+from that baseline" — not "the behaviour is correct". A run that is visually wrong
+but numerically identical to the baseline still passes the metric gate; that is what
+the visual channel and the human approval step exist for.
 
 ## Choose Your Start
 
@@ -96,7 +112,7 @@ Baseline rule:
 - Regression mode keeps the old baseline authoritative.
 - No new baseline is blessed automatically.
 
-### Watch the demo
+## Watch the demo
 
 [`docs/demo/roboharness-fixes-demo.mp4`](docs/demo/roboharness-fixes-demo.mp4) is a
 129 s walkthrough with the real MuJoCo simulation running: a passing grasp, a
@@ -105,7 +121,7 @@ either verdict enforceable in CI. It is regenerated from real command output by
 `docs/demo/capture.py` + `docs/demo/build_video.py`; see
 [`docs/demo/README.md`](docs/demo/README.md).
 
-### Gate the decision in CI
+## Gate the decision in CI
 
 A proof surface only changes behaviour if it can refuse a merge. `roboharness gate`
 reads the decision artefact and exits with its code, so the trust loop can be a
@@ -129,6 +145,10 @@ The block records the git sha/branch/dirty flag, package version, timestamp, and
 a sha256 per image, so a reviewer can tell *which commit* produced *these
 pixels* — and the gate rejects the pack if the pixels changed afterwards.
 
+If the decision file was copied away from the evidence it describes (a CI artefact,
+a review bundle), pass `--evidence-root <dir>` so hashes resolve against the evidence
+instead of the report's own folder.
+
 ## Why This Exists
 
 If Claude Code or Codex spends hours refactoring a robot behavior, the hard part is
@@ -148,8 +168,13 @@ uv pip install "roboharness @ git+https://github.com/MiaoDX/roboharness.git"    
 uv pip install "roboharness[demo] @ git+https://github.com/MiaoDX/roboharness.git"    # MuJoCo, Meshcat, Gymnasium, Rerun, Pillow
 uv pip install "roboharness[demo,wbc] @ git+https://github.com/MiaoDX/roboharness.git" # + whole-body control (Pinocchio, Pink)
 uv pip install "roboharness[lerobot] @ git+https://github.com/MiaoDX/roboharness.git" # LeRobot evaluation path
+uv pip install "roboharness[mcp] @ git+https://github.com/MiaoDX/roboharness.git"     # MCP server tools for agents
 uv pip install "roboharness[dev] @ git+https://github.com/MiaoDX/roboharness.git"     # test/lint/type deps
 ```
+
+`[dev]` pulls `gymnasium[classic-control]` so the zero-change quickstart can actually
+render. Without a renderer the wrapper cannot produce images; since v0.3.1 it records
+`capture_failed` and warns instead of reporting a silent success.
 
 For PyPI installs, replace the `uv pip install "... @ git+..."` form with the
 same extra on the published package, for example `pip install roboharness[demo]`.
@@ -223,14 +248,14 @@ These are real integrations and proof surfaces, but they are not the front-door 
 
 | Demo | Description | Report | Run |
 |:-----|:------------|:------:|:----|
-| **[MuJoCo Grasp](#mujoco-grasp)** | Scripted grasp with Meshcat 3D, paired baseline proof, approval report | [Live](https://miaodx.com/roboharness/grasp/) | `python examples/demos/mujoco/grasp.py --report` |
+| **MuJoCo Grasp** | Scripted grasp with Meshcat 3D, paired baseline proof, approval report | [Live](https://miaodx.com/roboharness/grasp/) | `python examples/demos/mujoco/grasp.py --report` |
 | **G1 Cross-Framework Proof** | Committed Meshcat vs MuJoCo paired-evidence report for one G1 bundle | repo-only | `python examples/demos/g1/cross_framework_report.py` |
-| **[G1 WBC Reach](#g1-humanoid-wbc-reach)** | Whole-body IK reaching (Pinocchio + Pink) | [Live](https://miaodx.com/roboharness/g1-reach/) | `python examples/demos/g1/wbc_reach.py --report` |
-| **[G1 Locomotion](#lerobot-g1-locomotion)** | GR00T RL stand→walk→stop, HuggingFace model | [Live](https://miaodx.com/roboharness/g1-loco/) | `python examples/demos/g1/lerobot_locomotion.py --report` |
-| **[G1 Native LeRobot (GR00T)](#native-lerobot-integration)** | Official `make_env()` factory + GR00T Balance + Walk | [Live](https://miaodx.com/roboharness/g1-native-groot/) | `python examples/demos/g1/lerobot_native.py --controller groot --report` |
-| **[G1 Native LeRobot (SONIC)](#native-lerobot-integration)** | Official `make_env()` factory + SONIC planner | [Live](https://miaodx.com/roboharness/g1-native-sonic/) | `python examples/demos/g1/lerobot_native.py --controller sonic --report` |
-| **[SONIC Planner](#sonic-planner)** | Standalone GEAR-SONIC planner demo on G1 | [Live](https://miaodx.com/roboharness/sonic-planner/) | `python examples/demos/sonic/locomotion.py --report` |
-| **[SONIC Motion Tracking](#sonic-motion-tracking)** | Real encoder+decoder tracking demo on G1 | [Live](https://miaodx.com/roboharness/sonic/) | `python examples/demos/sonic/tracking.py --report` |
+| **G1 WBC Reach** | Whole-body IK reaching (Pinocchio + Pink) | [Live](https://miaodx.com/roboharness/g1-reach/) | `python examples/demos/g1/wbc_reach.py --report` |
+| **G1 Locomotion** | GR00T RL stand→walk→stop, HuggingFace model | [Live](https://miaodx.com/roboharness/g1-loco/) | `python examples/demos/g1/lerobot_locomotion.py --report` |
+| **G1 Native LeRobot (GR00T)** | Official `make_env()` factory + GR00T Balance + Walk | [Live](https://miaodx.com/roboharness/g1-native-groot/) | `python examples/demos/g1/lerobot_native.py --controller groot --report` |
+| **G1 Native LeRobot (SONIC)** | Official `make_env()` factory + SONIC planner | [Live](https://miaodx.com/roboharness/g1-native-sonic/) | `python examples/demos/g1/lerobot_native.py --controller sonic --report` |
+| **SONIC Planner** | Standalone GEAR-SONIC planner demo on G1 | [Live](https://miaodx.com/roboharness/sonic-planner/) | `python examples/demos/sonic/locomotion.py --report` |
+| **SONIC Motion Tracking** | Real encoder+decoder tracking demo on G1 | [Live](https://miaodx.com/roboharness/sonic/) | `python examples/demos/sonic/tracking.py --report` |
 
 ## Showcase Repository
 
@@ -403,14 +428,18 @@ result = harness.run_to_next_checkpoint(actions)
 
 ## Supported Simulators
 
-| Simulator | Status | Integration |
-|-----------|--------|-------------|
-| MuJoCo + Meshcat | ✅ Implemented | Native backend adapter |
-| LeRobot (G1 MuJoCo) | ✅ Implemented | Gymnasium Wrapper + Controllers |
-| LeRobot Native (`make_env`) | ✅ Implemented | `make_env()` + VectorEnvAdapter |
-| Isaac Lab | ✅ Implemented | Gymnasium Wrapper (GPU required for E2E) |
-| ManiSkill | ✅ Implemented | Gymnasium Wrapper |
-| LocoMuJoCo / MuJoCo Playground / unitree_rl_gym | 📋 Roadmap | Various |
+| Simulator | Status | Integration | Validated by |
+|-----------|--------|-------------|--------------|
+| MuJoCo + Meshcat | ✅ Implemented | Native backend adapter | Demo + CI job with `--assert-success` |
+| LeRobot (G1 MuJoCo) | ✅ Implemented | Gymnasium Wrapper + Controllers | CI job (CPU inference) |
+| LeRobot Native (`make_env`) | ✅ Implemented | `make_env()` + VectorEnvAdapter | CI job |
+| Isaac Lab | ⚠️ Wrapper only | Gymnasium Wrapper | A mock env returning CUDA tensors; no real Isaac Lab in CI |
+| ManiSkill | ⚠️ Wrapper only | Gymnasium Wrapper | Community example with a `--mock` fallback; no CI job |
+| LocoMuJoCo / MuJoCo Playground / unitree_rl_gym | 📋 Roadmap | Various | — |
+
+`✅` means the integration is exercised in CI. `⚠️` means the adapter code exists and
+is unit-tested against a mock, but end-to-end validation on the real simulator is not
+in CI and should be treated as unverified.
 
 ## Design Principles
 
@@ -418,6 +447,14 @@ result = harness.run_to_next_checkpoint(actions)
 - **Gymnasium Wrapper for zero-change integration** — works with Isaac Lab, ManiSkill, etc.
 - **SimulatorBackend protocol** — implement a few methods, plug in any simulator
 - **Agent-consumable output** — PNG + JSON files that any coding agent can read
+- **Fail closed** — a contract that cannot be grounded stops the run as `CONTRACT_INVALID`
+  instead of guessing; a metric that cannot be read counts as a failure, not a pass
+- **The baseline stays authoritative** — regression mode never blesses a new baseline
+  automatically, and `AMBIGUOUS` can never promote itself to `PASS`
+- **Verdicts are enforceable** — `roboharness gate` maps the decision to an exit code
+- **Evidence is attributable** — `proof-pack --provenance` binds a pack to its commit and
+  to a sha256 per cited image; `gate --require-provenance` rejects a pack whose pixels
+  no longer match
 
 See [STATUS.md](STATUS.md), [ARCHITECTURE.md](ARCHITECTURE.md),
 [docs/human/README.md](docs/human/README.md), [CONTRIBUTING.md](CONTRIBUTING.md),
