@@ -40,3 +40,8 @@ MUJOCO_LOG.TXT
 Thumbs.db
 .gstack/
 tmp
+
+# Demo video regeneration artifacts (frames are large and reproducible)
+.demo_artifacts/
+.demo_fault/
+docs/demo/anim/

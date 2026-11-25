@@ -96,6 +96,15 @@ Baseline rule:
 - Regression mode keeps the old baseline authoritative.
 - No new baseline is blessed automatically.
 
+### Watch the demo
+
+[`docs/demo/roboharness-fixes-demo.mp4`](docs/demo/roboharness-fixes-demo.mp4) is a
+129 s walkthrough with the real MuJoCo simulation running: a passing grasp, a
+fault-injected twin (fingers held open), and the gate/provenance checks that make
+either verdict enforceable in CI. It is regenerated from real command output by
+`docs/demo/capture.py` + `docs/demo/build_video.py`; see
+[`docs/demo/README.md`](docs/demo/README.md).
+
 ### Gate the decision in CI
 
 A proof surface only changes behaviour if it can refuse a merge. `roboharness gate`
