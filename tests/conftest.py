@@ -2,12 +2,39 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
+from urllib.parse import urlsplit
 
 import numpy as np
 import pytest
 
 from roboharness.core.capture import CameraView
+
+# Proxy schemes the HTTP stacks in this stack can actually parse. A bare
+# ``ALL_PROXY=socks://host:port`` (no version digit) is rejected by httpx with
+# "Unknown scheme for proxy URL", which turns every Hugging Face download in the
+# test suite into an unrelated failure. Normalising the environment keeps the
+# suite about roboharness rather than about the caller's proxy settings.
+_SUPPORTED_PROXY_SCHEMES = {"http", "https", "socks4", "socks5", "socks5h"}
+
+
+def _drop_unparseable_proxy_env() -> list[str]:
+    """Remove ALL_PROXY variables whose scheme the HTTP client cannot parse."""
+
+    dropped: list[str] = []
+    for name in ("ALL_PROXY", "all_proxy"):
+        value = os.environ.get(name)
+        if not value:
+            continue
+        scheme = urlsplit(value if "://" in value else f"//{value}").scheme.lower()
+        if scheme and scheme not in _SUPPORTED_PROXY_SCHEMES:
+            del os.environ[name]
+            dropped.append(name)
+    return dropped
+
+
+_DROPPED_PROXY_VARS = _drop_unparseable_proxy_env()
 
 
 class MockBackend:

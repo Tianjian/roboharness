@@ -89,13 +89,13 @@ class WbcIkController:
         except ImportError as exc:
             raise ImportError(
                 "Pinocchio is required for WbcIkController. "
-                "Install with: pip install roboharness[demo]"
+                "Install with: pip install roboharness[wbc]"
             ) from exc
         try:
             import pink
         except ImportError as exc:
             raise ImportError(
-                "Pink is required for WbcIkController. Install with: pip install roboharness[demo]"
+                "Pink is required for WbcIkController. Install with: pip install roboharness[wbc]"
             ) from exc
 
         self._pin = pin

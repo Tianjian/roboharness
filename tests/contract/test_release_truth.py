@@ -24,3 +24,20 @@ def test_project_urls_point_to_lowercase_repo() -> None:
     assert "MiaoDX/roboharness" in urls["Repository"]
     assert "MiaoDX/roboharness/issues" in urls["Issues"]
     assert "MiaoDX/roboharness/tree/main/docs" in urls["Documentation"]
+
+
+def test_citation_metadata_matches_pyproject() -> None:
+    """CITATION.cff had drifted from the package: version 0.1.1 and a
+    capital-R ``MiaoDX/RobotHarness`` URL that does not exist."""
+
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text())
+    citation = Path("CITATION.cff").read_text()
+
+    version_match = re.search(r'^version:\s*"([^"]+)"', citation, flags=re.MULTILINE)
+    assert version_match is not None
+    assert version_match.group(1) == pyproject["project"]["version"]
+
+    repo_match = re.search(r'^repository-code:\s*"([^"]+)"', citation, flags=re.MULTILINE)
+    assert repo_match is not None
+    assert "MiaoDX/roboharness" in repo_match.group(1)
+    assert "RobotHarness" not in repo_match.group(1)

@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Added `roboharness gate`, which turns an `approval_report.json` or
+  `proof_pack.json` into a process exit code (`PASS=0`, `FAIL=1`,
+  `AMBIGUOUS=2`, `CONTRACT_INVALID=3`). The trust loop previously ended in a
+  JSON decision that nothing could enforce in CI, so an agent could break
+  behaviour while the pipeline stayed green.
+- Added provenance binding in `roboharness.approval.provenance` (git sha,
+  branch, dirty flag, package version, timestamp, and a sha256 per cited
+  image). `proof-pack --provenance` writes the block; `gate --require-provenance`
+  verifies it and fails closed when it is missing, vacuous, or no longer
+  matches the pixels.
+
+### Fixed
+
+- Checkpoint capture no longer fails open. A checkpoint that produced zero
+  images used to report success (`state.json` only, debug-level log), so the
+  quickstart printed "Captures saved" with no screenshots. The wrapper now
+  records `capture_failed` and `capture_errors` in `metadata.json`, warns with
+  an actionable hint, and raises when built with `strict_capture=True`.
+- `TaskProtocol` now rejects duplicate phase names. Duplicates registered two
+  checkpoints against one snapshot slot, so a rollback could restore the wrong
+  state while the evidence pack labelled it as another phase.
+- `ruff format --check .` failed on eight Markdown files once ruff started
+  formatting embedded code (ruff >= 0.15). Lint/format are now scoped to Python
+  and `ruff` is pinned in CI and pre-commit (0.14.0), so the gate no longer
+  drifts with the tool version.
+- Declared the `mcp` extra; `roboharness.mcp.server` imported a package that no
+  extra installed.
+- `WbcIkController` told users to install `[demo]`; Pinocchio/Pink live in
+  `[wbc]`.
+- `CITATION.cff` drifted from the package: version `0.1.1` and a
+  `MiaoDX/RobotHarness` URL that does not exist. Also corrected the CaP-X first
+  author (Letian Fu, not "Max Fu").
+- `dev` installs `gymnasium[classic-control]` so the zero-change quickstart can
+  actually render instead of silently producing no images.
+- Test environment: an unparseable `ALL_PROXY` (e.g. a bare `socks://` scheme)
+  is dropped for the test session instead of breaking every Hugging Face
+  download with an unrelated httpx error.
+
 ## [0.3.0] - 2026-04-20
 
 ### Added

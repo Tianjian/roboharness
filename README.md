@@ -96,6 +96,30 @@ Baseline rule:
 - Regression mode keeps the old baseline authoritative.
 - No new baseline is blessed automatically.
 
+### Gate the decision in CI
+
+A proof surface only changes behaviour if it can refuse a merge. `roboharness gate`
+reads the decision artefact and exits with its code, so the trust loop can be a
+required check instead of a report nobody opens:
+
+```bash
+roboharness gate path/to/approval_report.json                    # PASS=0 FAIL=1 AMBIGUOUS=2 CONTRACT_INVALID=3
+roboharness gate path/to/run_dir --require-provenance            # also verify the evidence is bound
+roboharness gate path/to/approval_report.json --format json      # machine-readable decision
+```
+
+`--require-provenance` fails closed unless the artefact carries a provenance
+block that hashes at least one cited image and still matches it. Bind one when
+assembling a pack:
+
+```bash
+roboharness proof-pack path/to/case_dir --provenance
+```
+
+The block records the git sha/branch/dirty flag, package version, timestamp, and
+a sha256 per image, so a reviewer can tell *which commit* produced *these
+pixels* — and the gate rejects the pack if the pixels changed afterwards.
+
 ## Why This Exists
 
 If Claude Code or Codex spends hours refactoring a robot behavior, the hard part is
