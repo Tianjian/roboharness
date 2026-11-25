@@ -9,6 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from roboharness._utils import load_json as _load_json
+from roboharness.approval.gate import (
+    EXIT_CODES as GATE_EXIT_CODES,
+)
+from roboharness.approval.gate import gate as gate_decision
+from roboharness.approval.provenance import collect_provenance
 from roboharness.approval.visual_review import (
     validate_visual_review_manifest,
     write_visual_review_summary,
@@ -418,6 +423,55 @@ def main(argv: list[str] | None = None) -> int:
         default="human",
         help="Output format (default: human).",
     )
+    proof_pack_parser.add_argument(
+        "--provenance",
+        action="store_true",
+        help=(
+            "Bind the pack to its origin (git sha, package version, per-image "
+            "sha256, timestamp) so the gate can attribute and verify it."
+        ),
+    )
+
+    # gate
+    gate_parser = subparsers.add_parser(
+        "gate",
+        help="Decide an approval artefact and exit with its CI code.",
+        description=(
+            "Read an approval_report.json or proof_pack.json and exit "
+            + ", ".join(f"{name}={code}" for name, code in GATE_EXIT_CODES.items())
+            + "."
+        ),
+    )
+    gate_parser.add_argument(
+        "artefact",
+        type=Path,
+        help="approval_report.json, proof_pack.json, a case dir, or a run dir.",
+    )
+    gate_parser.add_argument(
+        "--require-provenance",
+        action="store_true",
+        help=(
+            "Fail closed (CONTRACT_INVALID) when the artefact has no provenance "
+            "block or its recorded image hashes no longer match."
+        ),
+    )
+    gate_parser.add_argument(
+        "--evidence-root",
+        type=Path,
+        default=None,
+        help=(
+            "Directory that provenance artifact paths are relative to. Defaults "
+            "to the artefact's own directory; set it when the decision file was "
+            "copied away from the evidence it describes."
+        ),
+    )
+    gate_parser.add_argument(
+        "--format",
+        dest="output_format",
+        choices=["human", "json"],
+        default="human",
+        help="Output format (default: human).",
+    )
 
     # visual-review-summary
     visual_review_summary_parser = subparsers.add_parser(
@@ -602,7 +656,17 @@ def main(argv: list[str] | None = None) -> int:
             proof_pack = build_case_proof_pack(args.case_dir)
             output_path = args.output or (args.case_dir / "proof_pack.json")
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            write_case_proof_pack(proof_pack, output_path)
+            provenance: dict[str, Any] | None = None
+            if args.provenance:
+                provenance = collect_provenance(
+                    args.case_dir,
+                    [ref.path for ref in proof_pack.renderer_evidence],
+                )
+            write_case_proof_pack(
+                proof_pack,
+                output_path,
+                extra={"provenance": provenance} if provenance is not None else None,
+            )
             manifest: dict[str, Any] | None = None
             if args.visual_review_manifest is not None:
                 manifest = build_static_visual_review_manifest(
@@ -622,6 +686,8 @@ def main(argv: list[str] | None = None) -> int:
                 "proof_pack_path": str(output_path),
                 "proof_pack": proof_pack.to_dict(),
             }
+            if provenance is not None:
+                payload["provenance"] = provenance
             if args.visual_review_manifest is not None:
                 payload["visual_review_manifest_path"] = str(args.visual_review_manifest)
                 payload["visual_review_manifest"] = manifest
@@ -632,9 +698,43 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  verdict={proof_pack.verdict}")
             print(f"  selected_phase={proof_pack.selected_phase}")
             print(f"  renderer_evidence={len(proof_pack.renderer_evidence)}")
+            if provenance is not None:
+                git = provenance.get("git") or {}
+                print(
+                    "  provenance=bound "
+                    f"(git={git.get('sha', 'n/a')[:12] or 'n/a'}, "
+                    f"dirty={git.get('dirty', 'n/a')}, "
+                    f"hashed={len(provenance.get('artifacts', []))} file(s))"
+                )
             if args.visual_review_manifest is not None:
                 print(f"Visual review manifest written to {args.visual_review_manifest}")
         return 0
+
+    if args.command == "gate":
+        try:
+            decision = gate_decision(
+                args.artefact,
+                require_provenance_binding=args.require_provenance,
+                evidence_root=args.evidence_root,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return GATE_EXIT_CODES["CONTRACT_INVALID"]
+
+        if args.output_format == "json":
+            print(json.dumps(decision.to_dict(), indent=2))
+        else:
+            print(f"Gate: {decision.verdict} (exit {decision.exit_code})")
+            print(f"  reason: {decision.reason}")
+            if decision.source:
+                print(f"  source: {decision.source}")
+            if decision.surfaced_cases:
+                print(f"  surfaced: {', '.join(decision.surfaced_cases)}")
+            if decision.needs_baseline_blessing:
+                print("  action: bless the new baseline explicitly before merging")
+            elif decision.needs_human:
+                print("  action: human review required")
+        return decision.exit_code
 
     if args.command == "visual-review-summary":
         try:

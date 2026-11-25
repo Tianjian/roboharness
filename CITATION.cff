@@ -7,10 +7,10 @@ authors:
     email: miaodx@hotmail.com
   - name: WLB
     email: wlb@floatinglife.ai
-repository-code: "https://github.com/MiaoDX/RobotHarness"
+repository-code: "https://github.com/MiaoDX/roboharness"
 url: "https://miaodx.com/roboharness/"
 license: MIT
-version: "0.1.1"
+version: "0.3.1"
 date-released: "2026-04-02"
 keywords:
   - robotics
@@ -46,7 +46,7 @@ references:
     abbreviation: "CaP-X"
     authors:
       - family-names: Fu
-        given-names: Max
+        given-names: Letian
       - family-names: Yu
         given-names: Justin
       - family-names: El-Refai

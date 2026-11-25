@@ -1,0 +1,124 @@
+{
+  "git_sha": "06e8234",
+  "branch": "fix/trust-layer-hardening",
+  "steps": [
+    {
+      "id": "demo",
+      "label": "Deterministic MuJoCo grasp run",
+      "command": "python examples/demos/mujoco/grasp.py --report --output-dir .demo_artifacts",
+      "exit": 0,
+      "output": "============================================================\n  Roboharness: MuJoCo Alarmed Grasp Loop\n============================================================\n\n[1/5] Loading MuJoCo model (inline XML) ...\n      Model loaded. Actuators: 3 (z-slide, left-finger, right-finger)\nYou can open the visualizer by visiting the following URL:\nhttp://127.0.0.1:7000/static/\n      Meshcat visualizer ready for 3D checkpoint exports.\n[2/5] Setting up harness with canonical grasp phases ...\n      Protocol: grasp\n      Checkpoints: ['plan', 'pre_grasp', 'approach', 'grasp', 'lift']\n[3/5] Running deterministic grasp simulation ...\n      Checkpoint 'plan': 3 views captured | step=0 | sim_time=0.000s\n        -> .demo_artifacts/mujoco_grasp/trial_001/plan\n        -> Meshcat 3D: .demo_artifacts/mujoco_grasp/trial_001/plan/meshcat_scene.html\n      Checkpoint 'pre_grasp': 3 views captured | step=500 | sim_time=1.000s\n        -> .demo_artifacts/mujoco_grasp/trial_001/pre_grasp\n        -> Meshcat 3D: .demo_artifacts/mujoco_grasp/trial_001/pre_grasp/meshcat_scene.html\n      Checkpoint 'approach': 3 views captured | step=1000 | sim_time=2.000s\n        -> .demo_artifacts/mujoco_grasp/trial_001/approach\n        -> Meshcat 3D: .demo_artifacts/mujoco_grasp/trial_001/approach/meshcat_scene.html\n      Checkpoint 'grasp': 3 views captured | step=1800 | sim_time=3.600s\n        -> .demo_artifacts/mujoco_grasp/trial_001/grasp\n        -> Meshcat 3D: .demo_artifacts/mujoco_grasp/trial_001/grasp/meshcat_scene.html\n      Checkpoint 'lift': 3 views captured | step=2600 | sim_time=5.200s\n        -> .demo_artifacts/mujoco_grasp/trial_001/lift\n        -> Meshcat 3D: .demo_artifacts/mujoco_grasp/trial_001/lift/meshcat_scene.html\n[4/5] Building alarmed artifact pack ...\n      HTML report: .demo_artifacts/report.html\n      contract.json: .demo_artifacts/mujoco_grasp/trial_001/contract.json\n      autonomous_report.json: .demo_artifacts/mujoco_grasp/trial_001/autonomous_report.json\n      alarms.json: .demo_artifacts/mujoco_grasp/trial_001/alarms.json\n      phase_manifest.json: .demo_artifacts/mujoco_grasp/trial_001/phase_manifest.json\n      approval_report.json: .demo_artifacts/mujoco_grasp/trial_001/approval_report.json\n      visual_review_manifest.json: .demo_artifacts/mujoco_grasp/trial_001/visual_review_manifest.json\n      visual_review_prompt.md: .demo_artifacts/mujoco_grasp/trial_001/visual_review_prompt.md\n      visual_review_schema.json: .demo_artifacts/mujoco_grasp/trial_001/visual_review_schema.json\n[5/5] Summary\n      19 images saved to: .demo_artifacts/mujoco_grasp/trial_001\n      Run state: No surfaced cases | surfaced: 0 | suppressed: 1\n      Verdict: PASS | failed phase: none | selected views: side, top\n      Evidence status: PASS/no failed phase\n      Baseline authority: Regression mode. Old baseline remains authoritative. No new baseline is available to bless.\n      Agent next action: No rerun required. The canonical primary views match baseline; inspect the final lift captures only if you are chasing a visual false negative.\n      No active alarms. Current run matches the blessed baseline envelope.\n\n  Output structure:\n    alarms.json\n    approach/\n      front_depth.npy\n      front_depth_viz.png\n      front_rgb.png\n      meshcat_scene.html\n      metadata.json\n      side_depth.npy\n      side_depth_viz.png\n      side_rgb.png\n      state.json\n      top_depth.npy\n      top_depth_viz.png\n      top_rgb.png\n    approval_report.json\n    autonomous_report.json\n    contract.json\n    grasp/\n      front_depth.npy\n      front_depth_viz.png\n      front_rgb.png\n      meshcat_scene.html\n      metadata.json\n      side_depth.npy\n      side_depth_viz.png\n      side_rgb.png\n      state.json\n      top_depth.npy\n      top_depth_viz.png\n      top_rgb.png\n    lift/\n      front_depth.npy\n      front_depth_viz.png\n      front_rgb.png\n      meshcat_scene.html\n      metadata.json\n      side_depth.npy\n      side_depth_viz.png\n      side_rgb.png\n      state.json\n      top_depth.npy\n      top_depth_viz.png\n      top_rgb.png\n    phase_manifest.json\n    plan/\n      front_depth.npy\n      front_depth_viz.png\n      front_rgb.png\n      meshcat_scene.html\n      metadata.json\n      side_depth.npy\n      side_depth_viz.png\n      side_rgb.png\n      state.json\n      top_depth.npy\n      top_depth_viz.png\n      top_rgb.png\n    pre_grasp/\n      front_depth.npy\n      front_depth_viz.png\n      front_rgb.png\n      meshcat_scene.html\n      metadata.json\n      side_depth.npy\n      side_depth_viz.png\n      side_rgb.png\n      state.json\n      top_depth.npy\n      top_depth_viz.png\n      top_rgb.png\n    visual_review_inputs/\n    visual_review_manifest.json\n    visual_review_prompt.md\n    visual_review_schema.json\n    report.html\n    mujoco_grasp_report.html\n\n============================================================"
+    },
+    {
+      "id": "gate_pass",
+      "label": "Gate the PASS artefact",
+      "command": "roboharness gate .demo_artifacts/mujoco_grasp/trial_001/approval_report.json",
+      "exit": 0,
+      "output": "Gate: PASS (exit 0)\n  reason: no material change surfaced; evidence complete\n  source: .demo_artifacts/mujoco_grasp/trial_001/approval_report.json"
+    },
+    {
+      "id": "fault",
+      "label": "Fault-injected twin (gripper never closes)",
+      "command": "python docs/demo/fault_demo.py --output-dir .demo_fault",
+      "exit": 0,
+      "output": "You can open the visualizer by visiting the following URL:\nhttp://127.0.0.1:7000/static/\ncheckpoint plan: 3 views | step=0 | sim_time=0.000s\ncheckpoint pre_grasp: 3 views | step=500 | sim_time=1.000s\ncheckpoint approach: 3 views | step=1000 | sim_time=2.000s\ncheckpoint grasp: 3 views | step=1800 | sim_time=3.600s\ncheckpoint lift: 3 views | step=2600 | sim_time=5.200s\n\n--- fault-injection result ---\nverdict: FAIL\nfailed_phase_id: grasp\nfailed_phase: contact\nsuspected_root_cause: contact_asymmetry\nprimary_views: ['front', 'side']\nrerun_hint: restore:approach\nevidence_state: review_ready_surfaced / \noverall_verdict: FAIL\nrun_state: review_ready_surfaced\nrun_state_title: Review surfaced cases\ncases_surfaced: 1\nneeds_baseline_blessing: False\nbaseline_authority: Regression mode. Old baseline remains authoritative. No new baseline is available to bless.\nALARM grasp:pinch_gap_error_mm_abs_delta severity=major actual=33.87623286672341 expected=< 10.0\nALARM lift:contact_count severity=critical actual=0.0 expected=>= 1.0\nALARM lift:cube_height_mm_abs_delta severity=critical actual=118.67511910478862 expected=< 12.0"
+    },
+    {
+      "id": "gate_fail",
+      "label": "Gate the FAIL artefact",
+      "command": "roboharness gate .demo_fault/mujoco_grasp/trial_001/approval_report.json",
+      "exit": 1,
+      "output": "Gate: FAIL (exit 1)\n  reason: a hard contract rule was violated\n  source: .demo_fault/mujoco_grasp/trial_001/approval_report.json\n  surfaced: deterministic_mujoco_grasp\n  action: human review required"
+    },
+    {
+      "id": "bind",
+      "label": "Bind provenance to the real evidence",
+      "command": "python docs/demo/bind_provenance.py .demo_artifacts/mujoco_grasp/trial_001",
+      "exit": 0,
+      "output": "bound 34 image(s) to git 06e8234af69b\nbranch=fix/trust-layer-hardening dirty=True (run artifacts are untracked)\nhash[0]=approach/front_depth_viz.png sha256=36783236680f6701...\nwrote /home/toby/Desktop/RoboHarness/fork/.demo_artifacts/mujoco_grasp/trial_001/bound_report.json"
+    },
+    {
+      "id": "prov_ok",
+      "label": "Gate with provenance verification",
+      "command": "roboharness gate bound_report.json --require-provenance",
+      "exit": 0,
+      "output": "Gate: PASS (exit 0)\n  reason: no material change surfaced; evidence complete\n  source: /home/toby/Desktop/RoboHarness/fork/.demo_artifacts/mujoco_grasp/trial_001/bound_report.json"
+    },
+    {
+      "id": "tamper",
+      "label": "Re-export one checkpoint image",
+      "command": "python docs/demo/tamper.py .demo_artifacts/mujoco_grasp/trial_001",
+      "exit": 0,
+      "output": "re-exported lift/front_rgb.png\n  one pixel changed at (0, 0): (98, 135, 186) -> (99, 135, 186)\n  bytes 53985 -> 53982 (same image, different sha256)"
+    },
+    {
+      "id": "prov_bad",
+      "label": "Gate after the pixels changed",
+      "command": "roboharness gate bound_report.json --require-provenance",
+      "exit": 3,
+      "output": "Gate: CONTRACT_INVALID (exit 3)\n  reason: provenance verification failed: artifact hash mismatch: lift/front_rgb.png (recorded 484012dd8179\u2026, actual ceabb1cb2bdc\u2026)\n  source: /home/toby/Desktop/RoboHarness/fork/.demo_artifacts/mujoco_grasp/trial_001/bound_report.json"
+    },
+    {
+      "id": "capture",
+      "label": "Zero-image checkpoint behaviour",
+      "command": "python docs/demo/capture_probe.py",
+      "exit": 0,
+      "output": "metadata.capture_failed = True\nmetadata.cameras       = []\nmetadata.capture_errors= [\"default: env.render() returned no frame for camera 'default'\"]\npng written            = False\nwrapper logged         = WARNING (see stderr); state-only evidence is loud, not silent\nstrict_capture=True    -> RuntimeError:\n  Checkpoint 'early' captured 0 images  ->  install a renderer or pass strict_capture=True"
+    },
+    {
+      "id": "pytest",
+      "label": "Test suite (hermetic)",
+      "command": "pytest -q -m \"not slow\"",
+      "exit": 0,
+      "output": "TOTAL                                                 4013    352    91%\nRequired test coverage of 90% reached. Total coverage: 91.23%\n653 passed, 4 skipped, 3 deselected in 3.65s"
+    },
+    {
+      "id": "ruff",
+      "label": "Lint + format gate",
+      "command": "ruff check . && ruff format --check .",
+      "exit": 0,
+      "output": "All checks passed!\n143 files already formatted"
+    },
+    {
+      "id": "mypy",
+      "label": "Type check",
+      "command": "mypy src",
+      "exit": 0,
+      "output": "Success: no issues found in 54 source files"
+    }
+  ],
+  "frames": {
+    "phases": [
+      "plan",
+      "pre_grasp",
+      "approach",
+      "grasp",
+      "lift"
+    ],
+    "front": [
+      ".demo_artifacts/mujoco_grasp/trial_001/plan/front_rgb.png",
+      ".demo_artifacts/mujoco_grasp/trial_001/pre_grasp/front_rgb.png",
+      ".demo_artifacts/mujoco_grasp/trial_001/approach/front_rgb.png",
+      ".demo_artifacts/mujoco_grasp/trial_001/grasp/front_rgb.png",
+      ".demo_artifacts/mujoco_grasp/trial_001/lift/front_rgb.png"
+    ],
+    "top": [
+      ".demo_artifacts/mujoco_grasp/trial_001/plan/top_rgb.png",
+      ".demo_artifacts/mujoco_grasp/trial_001/pre_grasp/top_rgb.png",
+      ".demo_artifacts/mujoco_grasp/trial_001/approach/top_rgb.png",
+      ".demo_artifacts/mujoco_grasp/trial_001/grasp/top_rgb.png",
+      ".demo_artifacts/mujoco_grasp/trial_001/lift/top_rgb.png"
+    ],
+    "ok": [
+      "True",
+      "True",
+      "True",
+      "True",
+      "True"
+    ]
+  },
+  "shots": {
+    "pass": "docs/demo/shot_pass.png",
+    "fail": "docs/demo/shot_fail.png"
+  }
+}

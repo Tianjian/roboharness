@@ -60,10 +60,13 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.0",
     "pre-commit>=3.0",
-    "gymnasium>=0.29",
+    "gymnasium[classic-control]>=0.29",
     "huggingface_hub>=0.20",
     "onnxruntime>=1.16",
     "Pillow>=9.0",
+]
+mcp = [
+    "mcp>=1.0",
 ]
 
 [project.scripts]
@@ -84,6 +87,13 @@ packages = ["src/roboharness"]
 [tool.ruff]
 target-version = "py310"
 line-length = 100
+# Lint and format Python only. Newer ruff releases also format code embedded in
+# Markdown by default, which made `ruff format --check .` fail on docs while
+# older releases passed -- the gate drifted with the unpinned tool version.
+# Scoping the include list keeps the check about Python and reproducible across
+# ruff releases.
+include = ["*.py", "*.pyi", "**/pyproject.toml"]
+extend-exclude = [".venv", "build", "dist", "assets", "hf-space"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B", "SIM", "PTH", "TCH", "RUF", "PIE"]

@@ -516,11 +516,30 @@ def write_visual_review_queue(queue: VisualReviewQueue, path: str | Path) -> Pat
     return output_path
 
 
-def write_case_proof_pack(proof_pack: CaseProofPack, path: str | Path) -> Path:
-    """Write a case proof pack to JSON."""
+def write_case_proof_pack(
+    proof_pack: CaseProofPack,
+    path: str | Path,
+    *,
+    extra: dict[str, Any] | None = None,
+) -> Path:
+    """Write a case proof pack to JSON.
+
+    Args:
+        proof_pack: The pack to serialise.
+        path: Destination path.
+        extra: Optional top-level blocks merged into the payload (for example a
+            ``provenance`` block). Keys that collide with the pack schema are
+            rejected so a pack can never be silently shadowed.
+    """
 
     output_path = Path(path)
-    save_json(proof_pack.to_dict(), output_path)
+    payload = proof_pack.to_dict()
+    if extra:
+        collisions = sorted(set(extra) & set(payload))
+        if collisions:
+            raise ValueError("extra keys would shadow proof pack fields: " + ", ".join(collisions))
+        payload = {**payload, **extra}
+    save_json(payload, output_path)
     return output_path
 
 
